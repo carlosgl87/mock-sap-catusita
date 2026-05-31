@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install *)",
+      "Bash(python -c \"from data import seed; print\\('vendedores', len\\(seed.VENDEDORES\\)\\); print\\('clientes', len\\(seed.CLIENTES\\)\\); print\\('productos', len\\(seed.PRODUCTOS\\)\\); print\\('pedidos', len\\(seed.PEDIDOS\\)\\); print\\('letras', len\\(seed.LETRAS\\)\\); print\\('vehiculos', len\\(seed.VEHICULOS\\)\\); print\\('sample sku', seed.PRODUCTOS[0]['sku']\\); print\\('sample cliente', seed.CLIENTES[0]['ruc'], seed.CLIENTES[0]['tipo']\\)\")",
+      "Bash(python -c \"import faker; print\\(faker.VERSION\\); from faker.config import AVAILABLE_LOCALES; print\\([l for l in AVAILABLE_LOCALES if l.startswith\\('es'\\)]\\)\")",
+      "Bash(python -c \"from data import seed; print\\('vendedores', len\\(seed.VENDEDORES\\)\\); print\\('clientes', len\\(seed.CLIENTES\\)\\); print\\('productos', len\\(seed.PRODUCTOS\\)\\); print\\('pedidos', len\\(seed.PEDIDOS\\)\\); print\\('letras', len\\(seed.LETRAS\\)\\); print\\('vehiculos', len\\(seed.VEHICULOS\\)\\); print\\('sample sku', seed.PRODUCTOS[0]['sku'], '|', seed.PRODUCTOS[0]['nombre']\\); print\\('sample cliente', seed.CLIENTES[0]['ruc'], seed.CLIENTES[0]['tipo'], '|', seed.CLIENTES[0]['razon_social']\\); import collections; print\\('clientes por vendedor', sorted\\(collections.Counter\\(c['vendedor_id'] for c in seed.CLIENTES\\).values\\(\\)\\)\\)\")",
+      "Bash(python -m uvicorn main:app --host 127.0.0.1 --port 8099 --log-level warning)",
+      "Bash(python -)",
+      "Bash(pip index *)",
+      "Bash(python -c \"import faker; print\\('version', faker.VERSION\\); from faker.config import AVAILABLE_LOCALES; print\\('es_PE supported:', 'es_PE' in AVAILABLE_LOCALES\\)\")",
+      "Bash(python *)"
+    ]
+  }
+}

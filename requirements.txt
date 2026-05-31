@@ -1,0 +1,4 @@
+fastapi==0.111.0
+uvicorn==0.29.0
+faker==40.19.1
+python-dotenv==1.0.1
