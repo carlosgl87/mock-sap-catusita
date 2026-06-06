@@ -2,3 +2,7 @@
 __pycache__/
 *.pyc
 .DS_Store
+_debug_resp.json
+_foto_resp.json
+debug_shots/
+resultados/

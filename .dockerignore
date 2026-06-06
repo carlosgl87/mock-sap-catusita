@@ -6,3 +6,6 @@ __pycache__
 resultados/
 hi.txt
 *.md
+_debug_resp.json
+_foto_resp.json
+debug_shots/

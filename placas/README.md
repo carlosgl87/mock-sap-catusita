@@ -57,16 +57,21 @@ uvicorn main:app --reload
 curl -H "X-API-Key: catusita-mock-key-2024" http://localhost:8000/placas/F9N562
 ```
 
-## ⚠️ La IP decide si funciona
+## La IP y el cuelgue de carga
 
-Cloudflare valida el token del Turnstile **junto con la reputación de la IP**:
+Cloudflare valida el token del Turnstile junto con la reputación de la IP. En las pruebas,
+**la IP de datacenter de Railway SÍ resolvió el Turnstile** y devolvió la foto (KIA PICANTO,
+placa F9N562) — sin proxy. No está garantizado para siempre (la reputación de IP puede
+cambiar); si algún día Cloudflare bloquea, el endpoint responde `502`/`504` limpio.
 
-- ✅ **IP residencial** (tu casa/oficina en Perú): funciona.
-- ❌ **IP de datacenter** (Railway, AWS, GCP…): Cloudflare casi seguro la **bloquea**.
+**El bug real que había no era la IP, sino Selenium colgándose en `driver.get()`** esperando
+que la página terminara de cargar (un recurso nunca completaba; el timeout por defecto es
+300s). El arreglo: `PLACAS_PAGE_TIMEOUT` (default 35s) capea la carga y el worker continúa
+igual — el DOM ya está usable. Sin esto, cada consulta se colgaba ~150s.
 
-Por decisión del proyecto se corre **sin proxy, con la IP de Railway**. Si Cloudflare la
-bloquea, el endpoint responde `502`/`504` de forma limpia (no crashea). El camino fiable
-de prueba es **local** desde una IP residencial peruana.
+| Var extra | Default | Qué hace |
+|-----------|---------|----------|
+| `PLACAS_PAGE_TIMEOUT` | `35` | Segundos máx esperando la carga de la página antes de seguir |
 
 ## Notas
 
