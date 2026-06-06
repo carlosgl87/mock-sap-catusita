@@ -62,18 +62,28 @@ return 'hooked';
 """
 
 
+def _log(msg):
+    print(f"[worker] {msg}", flush=True)
+
+
 def run(placa):
     placa = placa.strip().upper()
+    _log(f"START placa={placa} DISPLAY={os.environ.get('DISPLAY')!r}")
 
     # --no-sandbox es obligatorio corriendo como root en contenedor.
+    _log("abriendo Chrome (SB uc)...")
     with SB(uc=True, headless=False, locale="es",
             chromium_arg="--no-sandbox,--disable-dev-shm-usage") as sb:
+        _log("Chrome abierto; navegando a SUNARP...")
         sb.uc_open_with_reconnect(URL, reconnect_time=5)
+        _log("pagina cargada")
         time.sleep(2)
         sb.execute_script(HOOK)
 
+        _log("escribiendo placa...")
         sb.type("#nroPlaca", placa)
 
+        _log("resolviendo Turnstile (click real)...")
         sb.uc_gui_click_captcha()          # click real del SO sobre el Turnstile
         time.sleep(3)
         sb.execute_script(HOOK)            # reinstalar por si el reconnect lo reseteó
