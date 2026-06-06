@@ -8,7 +8,7 @@ import os
 TIMEOUT = int(os.getenv("PLACAS_TIMEOUT", "150"))
 
 # Reintentos por placa si el worker falla o se cuelga (total intentos = RETRIES + 1).
-RETRIES = int(os.getenv("PLACAS_RETRIES", "2"))
+RETRIES = int(os.getenv("PLACAS_RETRIES", "1"))
 
 # Nombre de la variable de entorno que el worker lee para saber dónde escribir.
 # El service crea una carpeta temporal por consulta y la pasa por aquí.

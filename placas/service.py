@@ -27,14 +27,24 @@ def _spawn(placa, outdir):
     """Lanza el worker como subproceso en su propio grupo de procesos."""
     env = {**os.environ, config.OUTDIR_ENV: outdir}
     cmd = [sys.executable, "-m", "placas.worker", placa]
+    # Capturamos stdout+stderr para volcarlos a los logs (diagnóstico del Turnstile)
+    # y poder devolver una pista en el error.
+    common = dict(env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                  text=True, encoding="utf-8", errors="replace")
     if _IS_WIN:
         # Grupo de procesos propio para poder matar todo el árbol (taskkill /T).
-        return subprocess.Popen(
-            cmd, env=env,
-            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
-        )
+        return subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+                                **common)
     # POSIX: nueva sesión -> os.killpg mata worker + Chrome hijos.
-    return subprocess.Popen(cmd, env=env, start_new_session=True)
+    return subprocess.Popen(cmd, start_new_session=True, **common)
+
+
+def _log(placa, salida):
+    """Vuelca la salida del worker a los logs del server (aparece en Railway)."""
+    if not salida:
+        return
+    for linea in salida.rstrip().splitlines():
+        print(f"[placas:{placa}] {linea}", flush=True)
 
 
 def _kill_tree(proc):
@@ -94,11 +104,20 @@ def consultar(placa, incluir_imagen=True):
               "mensaje": "No se pudo completar la consulta."}
     try:
         for intento in range(config.RETRIES + 1):
+            print(f"[placas:{placa}] intento {intento + 1}/{config.RETRIES + 1}", flush=True)
             proc = _spawn(placa, outdir)
             try:
-                code = proc.wait(timeout=config.TIMEOUT)
+                salida, _ = proc.communicate(timeout=config.TIMEOUT)
+                code = proc.returncode
+                _log(placa, salida)
             except subprocess.TimeoutExpired:
                 _kill_tree(proc)
+                try:
+                    salida, _ = proc.communicate(timeout=10)
+                    _log(placa, salida)
+                except Exception:
+                    pass
+                print(f"[placas:{placa}] TIMEOUT {config.TIMEOUT}s", flush=True)
                 ultimo = {"placa": placa, "ok": False, "status_hint": "timeout",
                           "mensaje": f"Timeout de {config.TIMEOUT}s en la consulta."}
                 time.sleep(2)
