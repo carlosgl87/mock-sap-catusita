@@ -49,13 +49,19 @@ async def status():
 
 
 @router.get("/{placa}", dependencies=[Depends(verify_api_key)])
-async def consultar_placa(placa: str, imagen: bool = Query(True)):
+async def consultar_placa(placa: str, imagen: bool = Query(True),
+                          debug: bool = Query(False)):
     listo, detalle = _entorno_listo()
     if not listo:
         raise HTTPException(status_code=503, detail=detalle)
 
     async with _lock:
-        resultado = await asyncio.to_thread(service.consultar, placa, imagen)
+        resultado = await asyncio.to_thread(service.consultar, placa, imagen, debug)
+
+    # En modo debug devolvemos 200 con el dict completo (incluye screenshots)
+    # aunque la consulta falle, para poder inspeccionar qué pasó.
+    if debug:
+        return resultado
 
     if resultado.get("status_hint") == "ok":
         resultado.pop("status_hint", None)

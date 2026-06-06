@@ -90,18 +90,35 @@ def _leer_resultado(placa, outdir, incluir_imagen):
     return resultado
 
 
-def consultar(placa, incluir_imagen=True):
+def _gather_screenshots(outdir, placa):
+    """Recolecta los screenshots de diagnóstico (debug_*.png, *_error.png) en base64."""
+    shots = {}
+    try:
+        for nombre in sorted(os.listdir(outdir)):
+            es_debug = nombre.startswith("debug_")
+            es_error = nombre.endswith("_error.png")
+            if (es_debug or es_error) and nombre.endswith(".png"):
+                with open(os.path.join(outdir, nombre), "rb") as fh:
+                    shots[nombre] = base64.b64encode(fh.read()).decode("ascii")
+    except Exception:
+        pass
+    return shots
+
+
+def consultar(placa, incluir_imagen=True, debug=False):
     """Consulta una placa con reintentos. Devuelve un dict con 'status_hint':
 
         ok        -> consulta exitosa (incluye imagen_base64 si incluir_imagen)
         not_found -> placa no encontrada / sin foto (worker exit 2)
         timeout   -> se agotaron los reintentos por timeout
         error     -> error inesperado del worker (exit 3) / posible bloqueo Cloudflare
+
+    Si debug=True, agrega 'screenshots' (dict nombre->base64) de las capturas de etapa.
     """
     placa = placa.strip().upper()
     outdir = tempfile.mkdtemp(prefix="placa_")
-    ultimo = {"placa": placa, "ok": False, "status_hint": "error",
-              "mensaje": "No se pudo completar la consulta."}
+    resultado = {"placa": placa, "ok": False, "status_hint": "error",
+                 "mensaje": "No se pudo completar la consulta."}
     try:
         for intento in range(config.RETRIES + 1):
             print(f"[placas:{placa}] intento {intento + 1}/{config.RETRIES + 1}", flush=True)
@@ -118,31 +135,32 @@ def consultar(placa, incluir_imagen=True):
                 except Exception:
                     pass
                 print(f"[placas:{placa}] TIMEOUT {config.TIMEOUT}s", flush=True)
-                ultimo = {"placa": placa, "ok": False, "status_hint": "timeout",
-                          "mensaje": f"Timeout de {config.TIMEOUT}s en la consulta."}
+                resultado = {"placa": placa, "ok": False, "status_hint": "timeout",
+                             "mensaje": f"Timeout de {config.TIMEOUT}s en la consulta."}
                 time.sleep(2)
                 continue
 
             if code == 0:
-                res = _leer_resultado(placa, outdir, incluir_imagen)
-                res["status_hint"] = "ok"
-                res["intentos"] = intento + 1
-                return res
+                resultado = _leer_resultado(placa, outdir, incluir_imagen)
+                resultado["status_hint"] = "ok"
+                resultado["intentos"] = intento + 1
+                break
 
             if code == 2:
-                res = _leer_resultado(placa, outdir, incluir_imagen=False)
-                res["ok"] = False
-                res["status_hint"] = "not_found"
-                res["mensaje"] = res.get("mensaje") or "Placa no encontrada en SUNARP."
-                ultimo = res
+                resultado = _leer_resultado(placa, outdir, incluir_imagen=False)
+                resultado["ok"] = False
+                resultado["status_hint"] = "not_found"
+                resultado["mensaje"] = resultado.get("mensaje") or "Placa no encontrada en SUNARP."
                 # Un 'no encontrado' no se reintenta: es respuesta válida del sitio.
-                return ultimo
+                break
 
             # code == 3 u otro: error inesperado -> reintentar.
-            ultimo = {"placa": placa, "ok": False, "status_hint": "error",
-                      "mensaje": "Error en el worker (posible bloqueo de Cloudflare)."}
+            resultado = {"placa": placa, "ok": False, "status_hint": "error",
+                         "mensaje": "Error en el worker (posible bloqueo de Cloudflare)."}
             time.sleep(2)
 
-        return ultimo
+        if debug:
+            resultado["screenshots"] = _gather_screenshots(outdir, placa)
+        return resultado
     finally:
         shutil.rmtree(outdir, ignore_errors=True)

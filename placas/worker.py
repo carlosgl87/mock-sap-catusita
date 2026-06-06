@@ -62,12 +62,28 @@ return 'hooked';
 """
 
 
+# Segundos máximos esperando que cargue la página antes de rendirse (evita el
+# cuelgue infinito cuando Cloudflare retiene la carga en un challenge).
+PAGE_LOAD_TIMEOUT = int(os.environ.get("PLACAS_PAGE_TIMEOUT", "35"))
+
+
 def _log(msg):
     print(f"[worker] {msg}", flush=True)
 
 
+def _shot(sb, name):
+    """Screenshot de diagnóstico (best-effort) en OUTDIR/debug_<name>.png."""
+    try:
+        os.makedirs(OUTDIR, exist_ok=True)
+        sb.save_screenshot(os.path.join(OUTDIR, f"debug_{name}.png"))
+        _log(f"screenshot debug_{name}.png")
+    except Exception as e:
+        _log(f"screenshot {name} fallo: {e}")
+
+
 def run(placa):
     placa = placa.strip().upper()
+    os.makedirs(OUTDIR, exist_ok=True)
     _log(f"START placa={placa} DISPLAY={os.environ.get('DISPLAY')!r}")
 
     # --no-sandbox es obligatorio corriendo como root en contenedor.
@@ -75,25 +91,53 @@ def run(placa):
     with SB(uc=True, headless=False, locale="es",
             chromium_arg="--no-sandbox,--disable-dev-shm-usage") as sb:
         _log("Chrome abierto; navegando a SUNARP...")
-        sb.uc_open_with_reconnect(URL, reconnect_time=5)
-        _log("pagina cargada")
-        time.sleep(2)
-        sb.execute_script(HOOK)
+        try:
+            sb.set_page_load_timeout(PAGE_LOAD_TIMEOUT)
+        except Exception:
+            pass
+        try:
+            sb.uc_open_with_reconnect(URL, reconnect_time=5)
+            _log("pagina cargada")
+        except Exception as e:
+            # Timeout de carga: probable challenge de Cloudflare reteniendo la página.
+            _log(f"uc_open no completó en {PAGE_LOAD_TIMEOUT}s: {e}")
+        _shot(sb, "01_post_open")
 
-        _log("escribiendo placa...")
-        sb.type("#nroPlaca", placa)
+        time.sleep(2)
+        try:
+            sb.execute_script(HOOK)
+        except Exception as e:
+            _log(f"hook fallo: {e}")
+
+        try:
+            _log("escribiendo placa...")
+            sb.type("#nroPlaca", placa)
+        except Exception as e:
+            _log(f"no se pudo escribir la placa (page bloqueada?): {e}")
+            _shot(sb, "02_sin_input")
+            return 3
 
         _log("resolviendo Turnstile (click real)...")
-        sb.uc_gui_click_captcha()          # click real del SO sobre el Turnstile
+        try:
+            sb.uc_gui_click_captcha()      # click real del SO sobre el Turnstile
+        except Exception as e:
+            _log(f"uc_gui_click_captcha fallo: {e}")
         time.sleep(3)
-        sb.execute_script(HOOK)            # reinstalar por si el reconnect lo reseteó
+        try:
+            sb.execute_script(HOOK)        # reinstalar por si el reconnect lo reseteó
+        except Exception:
+            pass
+        _shot(sb, "03_post_captcha")
 
         token = sb.execute_script(
             "var e=document.querySelector('[name=cf-turnstile-response]');return e?e.value:''"
         )
         print(f"[worker] token turnstile: {len(token or '')} chars", flush=True)
         if not token:
-            sb.uc_gui_click_captcha()
+            try:
+                sb.uc_gui_click_captcha()
+            except Exception:
+                pass
             time.sleep(3)
 
         # Enviar la búsqueda (botón Angular sin type=submit).
