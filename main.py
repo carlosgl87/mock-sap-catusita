@@ -17,12 +17,16 @@ from data import productos as productos_logic
 from data import clientes as clientes_logic
 from data import pedidos as pedidos_logic
 from data import vendedores as vendedores_logic
+from placas.router import router as placas_router
 
 app = FastAPI(
     title="Mock SAP Catusita",
     description="Servidor mock que simula las APIs de SAP de Grupo Catusita.",
     version="1.0.0",
 )
+
+# Módulo de consulta vehicular SUNARP (aislado en placas/). Ver placas/README.md.
+app.include_router(placas_router)
 
 
 # ===========================================================================
