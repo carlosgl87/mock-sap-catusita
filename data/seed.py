@@ -355,3 +355,11 @@ for c in CLIENTES:
 
 VEHICULOS_POR_PLACA = {v["placa"]: v for v in VEHICULOS}
 VEHICULOS_POR_VIN = {v["vin"]: v for v in VEHICULOS}
+
+
+# ===========================================================================
+# Datos ancla del QA — se inyectan al final, después de armar los índices.
+# Ver data/fixtures_qa.py y plan_de_datos.md.
+# ===========================================================================
+from data import fixtures_qa  # noqa: E402
+fixtures_qa.aplicar()

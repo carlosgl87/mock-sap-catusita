@@ -69,6 +69,7 @@ def buscar_catalogo(q: str = None, categoria: str = None,
         resultados = [
             p for p in resultados
             if all(t in _normalizar(p["nombre"]) or t in _normalizar(p["categoria"])
+                   or any(t in _normalizar(o) for o in p.get("oem", []))
                    for t in terminos)
         ]
 
