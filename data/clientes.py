@@ -29,8 +29,25 @@ def get_perfil(ruc: str):
     }
 
 
+def _estado_efectivo(letra, hoy=None):
+    """Estado REAL de la letra según la fecha, no el campo estático del seed.
+
+    El seed fija 'pendiente'/'vencida' al azar y al pasar el tiempo real queda
+    desactualizado: una letra 'pendiente' cuyo vencimiento ya pasó está, de
+    hecho, VENCIDA. Aquí se recalcula contra hoy. Las pagadas no cambian.
+    """
+    if letra.get("estado") == "pagada":
+        return "pagada"
+    hoy = hoy or date.today()
+    try:
+        venc = date.fromisoformat(letra["fecha_vencimiento"])
+    except Exception:
+        return letra.get("estado", "pendiente")
+    return "vencida" if venc < hoy else "pendiente"
+
+
 def _letras_pendientes(ruc):
-    """Letras que representan deuda viva (pendientes + vencidas)."""
+    """Letras que representan deuda viva (pendientes + vencidas, no pagadas)."""
     return [l for l in seed.LETRAS_POR_RUC.get(ruc, [])
             if l["estado"] in ("pendiente", "vencida")]
 
@@ -48,7 +65,7 @@ def get_credito(ruc: str):
 
     hoy = date.today()
     estado_credito = "al_dia"
-    if any(l["estado"] == "vencida" for l in letras):
+    if any(_estado_efectivo(l, hoy) == "vencida" for l in letras):
         estado_credito = "vencido"
     else:
         for l in letras:
@@ -75,7 +92,14 @@ def get_cobranzas(ruc: str, estado: str = None):
     if not cliente:
         return None
 
-    letras = list(seed.LETRAS_POR_RUC.get(ruc, []))
+    hoy = date.today()
+    # Recalcular el estado de cada letra contra la fecha real (sin mutar el
+    # seed): el campo estático se desactualiza al pasar el tiempo.
+    letras = []
+    for l in seed.LETRAS_POR_RUC.get(ruc, []):
+        letra = dict(l)
+        letra["estado"] = _estado_efectivo(l, hoy)
+        letras.append(letra)
 
     deuda_vencida = round(sum(l["monto"] for l in letras
                               if l["estado"] == "vencida"), 2)
