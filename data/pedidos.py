@@ -4,6 +4,22 @@ from datetime import date, timedelta
 
 from data import seed
 
+_pedidos_por_id: dict | None = None
+
+
+def _idx_por_id() -> dict:
+    """Índice lazy {pedido_id: pedido}. Construido en la primera llamada para
+    que incluya tanto los pedidos Faker como los de fixtures_qa."""
+    global _pedidos_por_id
+    if _pedidos_por_id is None:
+        _pedidos_por_id = {p["pedido_id"]: p for p in seed.PEDIDOS}
+    return _pedidos_por_id
+
+
+def get_pedido_por_id(pedido_id: str):
+    """Devuelve el pedido completo (incluyendo cliente_ruc) buscando por ID."""
+    return _idx_por_id().get(pedido_id)
+
 
 def get_pedidos(cliente_ruc: str, estado: str = None, limite: int = None):
     if cliente_ruc not in seed.CLIENTES_POR_RUC:

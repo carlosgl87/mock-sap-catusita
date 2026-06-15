@@ -75,6 +75,14 @@ async def precios(sku: str, tipo: str = Query(None, regex="^(neto|lista)$")):
 # ===========================================================================
 # 3. Pedidos por cliente
 # ===========================================================================
+@app.get("/pedido/{pedido_id}", dependencies=[Depends(verify_api_key)])
+async def pedido_por_id(pedido_id: str):
+    resultado = pedidos_logic.get_pedido_por_id(pedido_id)
+    if resultado is None:
+        raise HTTPException(status_code=404, detail="Pedido no encontrado")
+    return resultado
+
+
 @app.get("/pedidos/{cliente_ruc}", dependencies=[Depends(verify_api_key)])
 async def pedidos(cliente_ruc: str, estado: str = None, limite: int = None):
     resultado = pedidos_logic.get_pedidos(cliente_ruc, estado, limite)

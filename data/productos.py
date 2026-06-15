@@ -13,6 +13,13 @@ def _normalizar(texto: str) -> str:
     return sin_acentos.lower().strip()
 
 
+_STOP_WORDS = {
+    "de", "del", "la", "el", "los", "las", "un", "una", "para", "con", "en",
+    "y", "o", "por", "que", "se", "si", "no", "su", "al", "lo", "le", "ha",
+    "es", "a", "hay", "el", "este", "esa", "ese", "sus",
+}
+
+
 def get_producto(sku: str):
     return seed.PRODUCTOS_POR_SKU.get(sku)
 
@@ -59,19 +66,34 @@ def get_precio(sku: str, tipo: str = None):
     }
 
 
+def _coincide_producto(p: dict, terminos: list) -> bool:
+    """True si al menos el 60 % de los términos significativos aparecen en el
+    texto completo del producto (nombre + categoría + OEM + compatibilidad).
+    Permite consultas naturales como 'filtros de aceite Fram para Toyota Hilux'
+    donde 'Toyota' está en compatibilidad e 'Hilux' puede no estar en ningún
+    campo (pero los demás términos sí coinciden).
+    """
+    campos = (
+        [_normalizar(p["nombre"]), _normalizar(p["categoria"])]
+        + [_normalizar(o) for o in p.get("oem", [])]
+        + [_normalizar(m) for m in p.get("compatibilidad", [])]
+    )
+    texto = " ".join(campos)
+    matches = sum(1 for t in terminos if t in texto)
+    umbral = max(1, len(terminos) * 0.6)
+    return matches >= umbral
+
+
 def buscar_catalogo(q: str = None, categoria: str = None,
                     marca: str = None, con_stock: bool = False):
     resultados = seed.PRODUCTOS
 
     if q:
         q_norm = _normalizar(q)
-        terminos = q_norm.split()
-        resultados = [
-            p for p in resultados
-            if all(t in _normalizar(p["nombre"]) or t in _normalizar(p["categoria"])
-                   or any(t in _normalizar(o) for o in p.get("oem", []))
-                   for t in terminos)
-        ]
+        todos_los_terminos = q_norm.split()
+        # Quitar stop words; si no quedan términos, usar todos
+        terminos = [t for t in todos_los_terminos if t not in _STOP_WORDS] or todos_los_terminos
+        resultados = [p for p in resultados if _coincide_producto(p, terminos)]
 
     if categoria:
         cat_norm = _normalizar(categoria)
